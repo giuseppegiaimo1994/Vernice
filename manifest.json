@@ -1,0 +1,19 @@
+{
+  "name": "VERNICE — Enciclopedia & Mappa dell'Arte",
+  "short_name": "VERNICE",
+  "description": "Esplora opere d'arte, sculture, musei e tour culturali nel mondo.",
+  "start_url": "/Vernice/",
+  "scope": "/Vernice/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f6f2",
+  "theme_color": "#f7f6f2",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2318181b'/%3E%3Ctext x='256' y='330' font-family='Georgia,serif' font-size='280' font-weight='bold' fill='%23d4af37' text-anchor='middle'%3EV%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
