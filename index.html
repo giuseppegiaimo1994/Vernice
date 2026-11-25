@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VERNICE — Carrara Marble Edition</title>
+  <link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#f7f6f2" />
+<meta name="mobile-web-app-capable" content="yes" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -31,7 +34,7 @@
         linear-gradient(125deg, rgba(160,160,160,0.08) 0%, transparent 35%, rgba(120,120,120,0.09) 68%, transparent 100%);
       padding-bottom: 88px;
       min-height: 100vh;
-    }
+ }
     header {
       position: sticky;
       top: 0;
@@ -1069,5 +1072,12 @@
 
     refreshSessionAndData();
   </script>
+  <script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
