@@ -1,0 +1,1695 @@
+```html
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VERNICE — Carrara Marble Edition</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Cinzel -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Leaflet CSS & JS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <style>
+    :root {
+      --bg-marble: #f5f3ef;
+      --card-bg: #ffffff;
+      --ink: #171717;
+      --muted: #66635e;
+      --border: #e3ded4;
+      --crimson: #8f1d2c;
+      --terracotta: #c85a32;
+      --gold: #b88a2d;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--ink);
+      background-color: var(--bg-marble);
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.95) 0%, transparent 45%),
+        radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.85) 0%, transparent 50%),
+        linear-gradient(128deg, rgba(160, 156, 148, 0.09) 0%, transparent 32%, rgba(130, 125, 118, 0.11) 66%, transparent 100%),
+        linear-gradient(35deg, transparent 40%, rgba(184, 138, 45, 0.04) 52%, transparent 64%);
+      background-attachment: fixed;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .font-editorial {
+      font-family: 'Cinzel', Georgia, serif;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Subtle shimmer placeholder while resolving image */
+    .img-shimmer {
+      background: linear-gradient(110deg, #ede9e0 8%, #f8f6f1 18%, #ede9e0 33%);
+      background-size: 200% 100%;
+      animation: shimmerMove 1.4s linear infinite;
+    }
+    @keyframes shimmerMove {
+      to { background-position-x: -200%; }
+    }
+
+    /* Leaflet custom pins & popup styling */
+    .vernice-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 9999px;
+      background: #8f1d2c;
+      color: #ffffff;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32), 0 0 0 1.5px #b88a2d;
+      font-weight: 800;
+      font-size: 12px;
+      transition: transform 0.15s ease;
+    }
+    .vernice-pin:hover {
+      transform: scale(1.15);
+    }
+    .vernice-pin.museum {
+      background: #b88a2d;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32), 0 0 0 1.5px #8f1d2c;
+    }
+    .vernice-pin.sculpture {
+      background: #c85a32;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px !important;
+      padding: 0 !important;
+      overflow: hidden;
+      border: 1px solid #e3ded4;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.14) !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      width: 245px !important;
+      font-family: 'Inter', sans-serif !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button {
+      color: #ffffff !important;
+      background: rgba(23, 23, 23, 0.55) !important;
+      border-radius: 999px;
+      width: 22px !important;
+      height: 22px !important;
+      line-height: 20px !important;
+      top: 8px !important;
+      right: 8px !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-24 selection:bg-[#8f1d2c] selection:text-white">
+
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#e3ded4] px-4 py-3 shadow-xs">
+    <div class="max-w-2xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl border border-[#e3ded4] bg-gradient-to-br from-white via-[#faf8f4] to-[#ebe6dc] flex items-center justify-center shadow-inner ring-1 ring-[#b88a2d]/30">
+          <span class="font-editorial font-extrabold text-xl text-[#8f1d2c]">V</span>
+        </div>
+        <div>
+          <h1 class="font-editorial font-bold tracking-[0.14em] text-base text-[#171717] leading-none">VERNICE</h1>
+          <p class="text-[11px] text-[#66635e] font-medium mt-0.5">Carrara Marble Edition</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span id="connBadge" class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-[#f0d3a8] bg-[#fff8ed] text-[#9a5b13] transition-colors">
+          Caricamento...
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast / Message Container -->
+  <div id="toastContainer" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md pointer-events-none flex flex-col gap-2"></div>
+
+  <!-- Main Content Area -->
+  <main id="app" class="max-w-2xl mx-auto px-4 pt-4"></main>
+
+  <!-- Bottom Navigation Bar (5 Tabs) -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#e3ded4] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+    <div class="max-w-2xl mx-auto grid grid-cols-5">
+      <button type="button" id="tab-artworks" onclick="setTab('artworks')" class="nav-btn flex flex-col items-center justify-center py-2.5 px-1 text-[#8f1d2c] border-t-2 border-[#8f1d2c] bg-[#fdf9f4] transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+        <span class="text-[11px] font-bold">Opere</span>
+      </button>
+
+      <button type="button" id="tab-map" onclick="setTab('map')" class="nav-btn flex flex-col items-center justify-center py-2.5 px-1 text-[#66635e] border-t-2 border-transparent hover:text-[#171717] transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span class="text-[11px] font-bold">Mappa</span>
+      </button>
+
+      <button type="button" id="tab-propose" onclick="setTab('propose')" class="nav-btn flex flex-col items-center justify-center py-2.5 px-1 text-[#66635e] border-t-2 border-transparent hover:text-[#171717] transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        <span class="text-[11px] font-bold">Proponi</span>
+      </button>
+
+      <button type="button" id="tab-curator" onclick="setTab('curator')" class="nav-btn relative flex flex-col items-center justify-center py-2.5 px-1 text-[#66635e] border-t-2 border-transparent hover:text-[#171717] transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span class="text-[11px] font-bold">Curatore</span>
+        <span id="curatorBadgeCount" class="hidden absolute top-1.5 right-3 bg-[#c85a32] text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-full">0</span>
+      </button>
+
+      <button type="button" id="tab-profile" onclick="setTab('profile')" class="nav-btn flex flex-col items-center justify-center py-2.5 px-1 text-[#66635e] border-t-2 border-transparent hover:text-[#171717] transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        <span class="text-[11px] font-bold">Profilo & Play</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATION & CONSTANTS
+    // =========================================================================
+    const DEFAULT_URL = "https://igeaihunwrgidemhzgnc.supabase.co";
+    const DEFAULT_KEY = "sb_publishable_9P2QLlg1Z_cV0LaU-0l3UA_UW6O5iBe";
+    const CATEGORIES = ["Tutte", "Pittura", "Scultura", "Museo", "Architettura"];
+    const IMG_CACHE_STORAGE_KEY = "vernice_auto_image_cache_v1";
+
+    // Built-in coordinates dictionary for automatic city geocoding on the map
+    const CITY_COORDS = {
+      "firenze": [43.7696, 11.2558],
+      "florence": [43.7696, 11.2558],
+      "roma": [41.9028, 12.4964],
+      "rome": [41.9028, 12.4964],
+      "città del vaticano": [41.9029, 12.4534],
+      "vaticano": [41.9029, 12.4534],
+      "parigi": [48.8566, 2.3522],
+      "paris": [48.8566, 2.3522],
+      "milano": [45.4642, 9.1900],
+      "milan": [45.4642, 9.1900],
+      "venezia": [45.4408, 12.3155],
+      "venice": [45.4408, 12.3155],
+      "madrid": [40.4168, -3.7038],
+      "londra": [51.5074, -0.1278],
+      "london": [51.5074, -0.1278],
+      "amsterdam": [52.3676, 4.9041],
+      "vienna": [48.2082, 16.3738],
+      "oslo": [59.9139, 10.7522],
+      "amburgo": [53.5511, 9.9937],
+      "hamburg": [53.5511, 9.9937],
+      "atene": [37.9838, 23.7275],
+      "athens": [37.9838, 23.7275],
+      "new york": [40.7614, -73.9776],
+      "chicago": [41.8781, -87.6298],
+      "tokyo": [35.6762, 139.6503],
+      "torino": [45.0703, 7.6869],
+      "napoli": [40.8518, 14.2681],
+      "pisa": [43.7228, 10.4017],
+      "granada": [37.1773, -3.5986],
+      "san pietroburgo": [59.9343, 30.3351],
+      "washington": [38.9072, -77.0369],
+      "mantova": [45.1564, 10.7914],
+      "urbino": [43.7262, 12.6363],
+      "l'aia": [52.0705, 4.3007],
+      "cortona": [43.2751, 11.9851],
+      "cracovia": [50.0647, 19.9450],
+      "hartford": [41.7658, -72.6734]
+    };
+
+    // Demo catalog (even without image_url, the auto-resolver fetches real photos immediately)
+    const DEMO_ARTWORKS = [
+      {
+        id: "demo-1",
+        title: "David",
+        artist: "Michelangelo Buonarroti",
+        year: "1501–1504",
+        category: "Scultura",
+        era: "Rinascimento",
+        museum: "Galleria dell'Accademia",
+        city: "Firenze",
+        lat: 43.7769,
+        lng: 11.2587,
+        description: "Capolavoro in marmo bianco di Carrara alto oltre cinque metri, simbolo del Rinascimento.",
+        image_url: "",
+        status: "approved"
+      },
+      {
+        id: "demo-2",
+        title: "La Nascita di Venere",
+        artist: "Sandro Botticelli",
+        year: "1484–1486",
+        category: "Pittura",
+        era: "Rinascimento",
+        museum: "Galleria degli Uffizi",
+        city: "Firenze",
+        lat: 43.7678,
+        lng: 11.2553,
+        description: "Tempera su tela che raffigura l'approdo della dea dell'amore sull'isola di Cipro.",
+        image_url: "",
+        status: "approved"
+      },
+      {
+        id: "demo-3",
+        title: "Apollo e Dafne",
+        artist: "Gian Lorenzo Bernini",
+        year: "1622–1625",
+        category: "Scultura",
+        era: "Barocco",
+        museum: "Galleria Borghese",
+        city: "Roma",
+        lat: 41.9142,
+        lng: 12.4922,
+        description: "Scultura in marmo che cattura la metamorfosi della ninfa Dafne in albero d'alloro.",
+        image_url: "",
+        status: "approved"
+      },
+      {
+        id: "demo-4",
+        title: "Museo del Louvre",
+        artist: "Architettura Storica / I. M. Pei",
+        year: "1793",
+        category: "Museo",
+        era: "Rinascimento / Contemporanea",
+        museum: "Museo del Louvre",
+        city: "Parigi",
+        lat: 48.8606,
+        lng: 2.3376,
+        description: "Il museo d'arte più visitato al mondo, con la celebre piramide di vetro nel cortile Napoleone.",
+        image_url: "",
+        status: "approved"
+      },
+      {
+        id: "demo-5",
+        title: "Colosseo",
+        artist: "Architettura Romana",
+        year: "70–80 d.C.",
+        category: "Architettura",
+        era: "Classica",
+        museum: "Parco Archeologico del Colosseo",
+        city: "Roma",
+        lat: 41.8902,
+        lng: 12.4922,
+        description: "Il più grande anfiteatro del mondo antico, icona dell'ingegneria romana.",
+        image_url: "",
+        status: "approved"
+      }
+    ];
+
+    // =========================================================================
+    // APPLICATION STATE
+    // =========================================================================
+    let state = {
+      tab: "artworks",
+      searchQuery: "",
+      selectedCategory: "Tutte",
+      mapCategory: "Tutte",
+      supabaseUrl: localStorage.getItem("vernice_sb_url") || DEFAULT_URL,
+      supabaseKey: localStorage.getItem("vernice_sb_key") || DEFAULT_KEY,
+      client: null,
+      isLive: false,
+      user: null,
+      profile: null,
+      artworks: [...DEMO_ARTWORKS],
+      pendingArtworks: [],
+      reviews: JSON.parse(localStorage.getItem("vernice_local_reviews") || "[]"),
+      imageCache: JSON.parse(localStorage.getItem(IMG_CACHE_STORAGE_KEY) || "{}"),
+      resolvingIds: new Set(),
+      failedCacheKeys: new Set(),
+      diagMessage: "Pronto per il test di connessione.",
+      mapInstance: null,
+      markersLayer: null,
+      proposePreviewUrl: "",
+      proposePreviewLoading: false
+    };
+
+    // =========================================================================
+    // UTILITIES & TOASTS (NO ALERT)
+    // =========================================================================
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+
+      const colors = {
+        success: "bg-[#1f6f43] text-white border-[#175432]",
+        error: "bg-[#8f1d2c] text-white border-[#6d1420]",
+        info: "bg-[#171717] text-white border-[#333333]"
+      };
+
+      const toast = document.createElement("div");
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-lg text-xs font-semibold flex items-center justify-between gap-3 transition-all duration-300 opacity-0 -translate-y-2 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("opacity-0", "-translate-y-2");
+      });
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "-translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function getCacheKeyForArtwork(art) {
+      return `${(art.title || "").trim().toLowerCase()}::${(art.artist || "").trim().toLowerCase()}`;
+    }
+
+    function saveImageCache() {
+      try {
+        localStorage.setItem(IMG_CACHE_STORAGE_KEY, JSON.stringify(state.imageCache));
+      } catch (e) {
+        // Ignore quota exceeded
+      }
+    }
+
+    // =========================================================================
+    // AUTOMATIC IMAGE RESOLVER (WIKIPEDIA IT/EN + WIKIMEDIA COMMONS)
+    // =========================================================================
+    async function searchWikipediaThumbnail(lang, query) {
+      const cleanQuery = query.trim();
+      if (!cleanQuery) return null;
+      const endpoint = `https://${lang}.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(cleanQuery)}&gsrlimit=4&prop=pageimages&piprop=thumbnail&pithumbsize=700&format=json&origin=*`;
+      const res = await fetch(endpoint);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const pages = data?.query?.pages;
+      if (!pages) return null;
+
+      // Sort by search index so the top search result is chosen first
+      const sortedPages = Object.values(pages).sort((a, b) => (a.index || 99) - (b.index || 99));
+      for (const page of sortedPages) {
+        if (page?.thumbnail?.source) {
+          const src = page.thumbnail.source;
+          // Avoid generic SVG icons or maps if better photo exists
+          if (!src.toLowerCase().endsWith(".svg") && !src.toLowerCase().includes("flag_of_")) {
+            return src;
+          }
+        }
+      }
+      return null;
+    }
+
+    async function searchWikimediaCommonsImage(query) {
+      const cleanQuery = query.trim();
+      if (!cleanQuery) return null;
+      // Search File namespace (gsrnamespace=6) on Wikimedia Commons
+      const endpoint = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(cleanQuery)}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url&iiurlwidth=700&format=json&origin=*`;
+      const res = await fetch(endpoint);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const pages = data?.query?.pages;
+      if (!pages) return null;
+
+      const sortedPages = Object.values(pages).sort((a, b) => (a.index || 99) - (b.index || 99));
+      for (const page of sortedPages) {
+        const info = page?.imageinfo?.[0];
+        const url = info?.thumburl || info?.url;
+        if (url && !url.toLowerCase().endsWith(".svg") && !url.toLowerCase().endsWith(".pdf")) {
+          return url;
+        }
+      }
+      return null;
+    }
+
+    async function fetchBestArtworkImageUrl(title, artist, museum = "", category = "") {
+      const cleanTitle = (title || "").replace(/\(.*?\)/g, "").trim();
+      const cleanArtist = (artist || "").replace(/Architettura.*|Scuola.*|Autore ignoto/gi, "").trim();
+
+      // Build smart progressive search queries
+      const queriesIt = [
+        cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle,
+        cleanTitle,
+        museum && cleanTitle !== museum ? `${museum}` : ""
+      ].filter(Boolean);
+
+      // 1. Try Italian Wikipedia
+      for (const q of queriesIt) {
+        try {
+          const url = await searchWikipediaThumbnail("it", q);
+          if (url) return url;
+        } catch (e) {}
+      }
+
+      // 2. Try English Wikipedia
+      for (const q of queriesIt) {
+        try {
+          const url = await searchWikipediaThumbnail("en", q);
+          if (url) return url;
+        } catch (e) {}
+      }
+
+      // 3. Fallback to Wikimedia Commons file search
+      const commonsQuery = cleanArtist ? `${cleanTitle} ${cleanArtist}` : `${cleanTitle} ${museum}`;
+      try {
+        const commonsUrl = await searchWikimediaCommonsImage(commonsQuery);
+        if (commonsUrl) return commonsUrl;
+      } catch (e) {}
+
+      return null;
+    }
+
+    function getEffectiveImageUrl(artwork) {
+      const cacheKey = getCacheKeyForArtwork(artwork);
+      // If we resolved a verified URL in this session/cache and it hasn't failed, prefer it
+      if (state.imageCache[cacheKey] && !state.failedCacheKeys.has(cacheKey)) {
+        return state.imageCache[cacheKey];
+      }
+      // Otherwise use DB image_url if present and not marked broken
+      if (artwork.image_url && artwork.image_url.trim() !== "" && !artwork._dbImgFailed) {
+        return artwork.image_url.trim();
+      }
+      return "";
+    }
+
+    async function resolveMissingImageForArtwork(artwork, forceRefresh = false) {
+      const key = String(artwork.id || getCacheKeyForArtwork(artwork));
+      const cacheKey = getCacheKeyForArtwork(artwork);
+
+      if (state.resolvingIds.has(key)) return;
+      if (!forceRefresh && state.imageCache[cacheKey] && !state.failedCacheKeys.has(cacheKey)) {
+        return;
+      }
+
+      state.resolvingIds.add(key);
+      updateCardImageDom(artwork.id, "", true);
+
+      try {
+        const foundUrl = await fetchBestArtworkImageUrl(
+          artwork.title,
+          artwork.artist,
+          artwork.museum,
+          artwork.category
+        );
+
+        if (foundUrl) {
+          state.failedCacheKeys.delete(cacheKey);
+          state.imageCache[cacheKey] = foundUrl;
+          artwork.image_url = foundUrl;
+          artwork._dbImgFailed = false;
+          saveImageCache();
+          updateCardImageDom(artwork.id, foundUrl, false);
+
+          // Automatically persist back to Supabase artworks.image_url if logged in as curator!
+          if (
+            state.client &&
+            state.user &&
+            state.profile?.is_curator &&
+            artwork.id &&
+            !String(artwork.id).startsWith("demo-")
+          ) {
+            await state.client
+              .from("artworks")
+              .update({ image_url: foundUrl })
+              .eq("id", artwork.id);
+          }
+        } else {
+          updateCardImageDom(artwork.id, "", false);
+        }
+      } finally {
+        state.resolvingIds.delete(key);
+      }
+    }
+
+    function handleArtworkImageError(artworkId) {
+      const art = state.artworks.find(a => String(a.id) === String(artworkId));
+      if (!art) return;
+      const cacheKey = getCacheKeyForArtwork(art);
+
+      if (state.imageCache[cacheKey]) {
+        state.failedCacheKeys.add(cacheKey);
+      }
+      art._dbImgFailed = true;
+
+      // Trigger automatic resolution immediately when a URL fails to load
+      if (!art._autoRetried) {
+        art._autoRetried = true;
+        resolveMissingImageForArtwork(art, true);
+      } else {
+        updateCardImageDom(artworkId, "", false);
+      }
+    }
+
+    function updateCardImageDom(artworkId, url, isLoading) {
+      const container = document.getElementById(`art-img-box-${artworkId}`);
+      if (!container) return;
+
+      const art = state.artworks.find(a => String(a.id) === String(artworkId));
+      if (!art) return;
+
+      if (url) {
+        container.innerHTML = `
+          <img
+            src="${escapeHtml(url)}"
+            alt="${escapeHtml(art.title)}"
+            loading="lazy"
+            class="w-full max-h-64 object-cover transition-opacity duration-300"
+            onerror="handleArtworkImageError('${escapeHtml(art.id)}')"
+          />
+        `;
+      } else if (isLoading) {
+        container.innerHTML = `
+          <div class="w-full h-44 img-shimmer flex flex-col items-center justify-center p-4 text-center">
+            <span class="text-xs font-bold text-[#8f1d2c] tracking-wide">Ricerca immagine automatica...</span>
+            <span class="text-[11px] text-[#66635e] mt-1">${escapeHtml(art.title)}</span>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="w-full h-36 bg-gradient-to-br from-[#faf8f4] to-[#ece7dd] border-b border-[#e3ded4] flex flex-col items-center justify-center p-4 text-center">
+            <span class="font-editorial text-sm font-bold text-[#8f1d2c]">${escapeHtml(art.title)}</span>
+            <span class="text-[11px] text-[#66635e] mt-0.5">${escapeHtml(art.museum || art.city || "")}</span>
+            <button
+              type="button"
+              onclick="manualRetryArtworkImage('${escapeHtml(art.id)}')"
+              class="mt-2 px-3 py-1 rounded-full bg-white border border-[#d5cfc4] text-[11px] font-bold text-[#171717] hover:border-[#8f1d2c] transition"
+            >
+              ↻ Cerca immagine
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function manualRetryArtworkImage(artworkId) {
+      const art = state.artworks.find(a => String(a.id) === String(artworkId));
+      if (!art) return;
+      art._autoRetried = false;
+      art._dbImgFailed = false;
+      resolveMissingImageForArtwork(art, true);
+    }
+
+    // Queue automatic image resolution for visible artworks missing an image
+    async function resolveVisibleMissingImages(artworksList) {
+      const missing = artworksList.filter(a => !getEffectiveImageUrl(a) && !a._autoRetried);
+      if (missing.length === 0) return;
+
+      // Process in small batches of 3 to avoid overwhelming mobile network / Wikipedia API
+      const batchSize = 3;
+      for (let i = 0; i < missing.length; i += batchSize) {
+        const batch = missing.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(art => {
+            art._autoRetried = true;
+            return resolveMissingImageForArtwork(art, false);
+          })
+        );
+      }
+    }
+
+    // Preview automatic image in Propose tab
+    async function previewProposeImage() {
+      const title = document.getElementById("artTitle")?.value.trim() || "";
+      const artist = document.getElementById("artArtist")?.value.trim() || "";
+      const museum = document.getElementById("artMuseum")?.value.trim() || "";
+
+      if (!title) {
+        showToast("Inserisci prima il titolo dell'opera o del museo.", "error");
+        return;
+      }
+
+      const previewBox = document.getElementById("proposeAutoImgPreview");
+      if (previewBox) {
+        previewBox.innerHTML = `<div class="p-4 rounded-xl img-shimmer text-center text-xs font-bold text-[#8f1d2c]">Ricerca immagine su Wikipedia / Commons...</div>`;
+      }
+
+      const url = await fetchBestArtworkImageUrl(title, artist, museum);
+      if (url) {
+        const imgInput = document.getElementById("artImg");
+        if (imgInput) imgInput.value = url;
+        if (previewBox) {
+          previewBox.innerHTML = `
+            <div class="rounded-xl overflow-hidden border border-[#e3ded4] bg-[#faf8f4]">
+              <img src="${escapeHtml(url)}" alt="${escapeHtml(title)}" class="w-full max-h-48 object-cover" />
+              <div class="px-3 py-2 text-[11px] font-semibold text-[#1f6f43] bg-[#effaf3]">
+                ✓ Immagine trovata e collegata automaticamente
+              </div>
+            </div>
+          `;
+        }
+        showToast("Immagine trovata automaticamente!", "success");
+      } else {
+        if (previewBox) {
+          previewBox.innerHTML = `<div class="p-3 rounded-xl bg-[#fff8ed] border border-[#f0d3a8] text-xs text-[#9a5b13]">Nessuna immagine trovata automaticamente: puoi incollare tu un URL qui sopra.</div>`;
+        }
+        showToast("Nessuna anteprima automatica trovata.", "info");
+      }
+    }
+
+    // =========================================================================
+    // SUPABASE INIT & DATA SYNC
+    // =========================================================================
+    function initSupabase() {
+      try {
+        if (state.supabaseUrl && state.supabaseKey && window.supabase) {
+          state.client = window.supabase.createClient(
+            state.supabaseUrl.trim(),
+            state.supabaseKey.trim()
+          );
+        } else {
+          state.client = null;
+        }
+      } catch (err) {
+        console.error("Supabase init error:", err);
+        state.client = null;
+      }
+    }
+
+    async function refreshSessionAndData() {
+      initSupabase();
+      if (!state.client) {
+        updateBadge(false);
+        render();
+        return;
+      }
+
+      try {
+        const { data: sessionData } = await state.client.auth.getSession();
+        state.user = sessionData?.session?.user || null;
+
+        if (state.user) {
+          const { data: prof } = await state.client
+            .from("profiles")
+            .select("*")
+            .eq("id", state.user.id)
+            .single();
+          state.profile = prof || null;
+        } else {
+          state.profile = null;
+        }
+
+        const { data: approved, error: artErr } = await state.client
+          .from("artworks")
+          .select("*")
+          .eq("status", "approved")
+          .order("created_at", { ascending: false });
+
+        if (!artErr && Array.isArray(approved) && approved.length > 0) {
+          state.artworks = approved;
+        } else {
+          state.artworks = [...DEMO_ARTWORKS];
+        }
+
+        const { data: revRows, error: revErr } = await state.client
+          .from("reviews")
+          .select("id, artwork_id, user_id, rating, created_at");
+
+        if (!revErr && Array.isArray(revRows)) {
+          state.reviews = revRows;
+        }
+
+        if (state.profile?.is_curator) {
+          const { data: pending } = await state.client
+            .from("artworks")
+            .select("*")
+            .eq("status", "pending")
+            .order("created_at", { ascending: false });
+          state.pendingArtworks = pending || [];
+        } else {
+          state.pendingArtworks = [];
+        }
+
+        updateBadge(!artErr);
+      } catch (e) {
+        console.error("Sync error:", e);
+        updateBadge(false);
+      }
+
+      updateCuratorBadge();
+      render();
+    }
+
+    function updateBadge(isLive) {
+      state.isLive = isLive;
+      const el = document.getElementById("connBadge");
+      if (!el) return;
+      if (isLive) {
+        el.textContent = "● Supabase Live";
+        el.className = "text-[11px] font-bold px-3 py-1.5 rounded-full border border-[#b7dfc8] bg-[#effaf3] text-[#1f6f43]";
+      } else {
+        el.textContent = "● Modalità Demo";
+        el.className = "text-[11px] font-bold px-3 py-1.5 rounded-full border border-[#f0d3a8] bg-[#fff8ed] text-[#9a5b13]";
+      }
+    }
+
+    function updateCuratorBadge() {
+      const badge = document.getElementById("curatorBadgeCount");
+      if (!badge) return;
+      if (state.profile?.is_curator && state.pendingArtworks.length > 0) {
+        badge.textContent = state.pendingArtworks.length;
+        badge.classList.remove("hidden");
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    // =========================================================================
+    // NAVIGATION & FILTERING
+    // =========================================================================
+    function setTab(tab) {
+      state.tab = tab;
+      document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.classList.remove("text-[#8f1d2c]", "border-[#8f1d2c]", "bg-[#fdf9f4]");
+        btn.classList.add("text-[#66635e]", "border-transparent");
+      });
+      const activeBtn = document.getElementById("tab-" + tab);
+      if (activeBtn) {
+        activeBtn.classList.remove("text-[#66635e]", "border-transparent");
+        activeBtn.classList.add("text-[#8f1d2c]", "border-[#8f1d2c]", "bg-[#fdf9f4]");
+      }
+      render();
+    }
+
+    function updateSearchQuery(val) {
+      state.searchQuery = val;
+      renderArtworksListOnly();
+    }
+
+    function selectCategory(cat) {
+      state.selectedCategory = cat;
+      render();
+    }
+
+    function selectMapCategory(cat) {
+      state.mapCategory = cat;
+      renderMapMarkers();
+      document.querySelectorAll(".map-cat-btn").forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = "map-cat-btn shrink-0 px-3 py-1.5 rounded-full text-xs font-bold bg-[#8f1d2c] text-white border border-[#8f1d2c] transition";
+        } else {
+          btn.className = "map-cat-btn shrink-0 px-3 py-1.5 rounded-full text-xs font-bold bg-[#f4f1ea] text-[#171717] border border-[#e3ded4] hover:border-[#b88a2d] transition";
+        }
+      });
+    }
+
+    function clearSearchAndFilters() {
+      state.searchQuery = "";
+      state.selectedCategory = "Tutte";
+      render();
+    }
+
+    function jumpToArtworkInCatalog(title) {
+      state.searchQuery = title;
+      state.selectedCategory = "Tutte";
+      setTab("artworks");
+    }
+
+    function getFilteredArtworks(categoryOverride = null) {
+      const q = state.searchQuery.trim().toLowerCase();
+      const cat = categoryOverride || state.selectedCategory;
+
+      return state.artworks.filter(a => {
+        const itemCat = (a.category || "").toLowerCase();
+        const matchesCat = cat === "Tutte" || itemCat === cat.toLowerCase();
+        if (!matchesCat) return false;
+
+        if (categoryOverride) return true;
+        if (!q) return true;
+
+        const haystack = [
+          a.title,
+          a.artist,
+          a.museum,
+          a.city,
+          a.category,
+          a.era
+        ].join(" ").toLowerCase();
+
+        return haystack.includes(q);
+      });
+    }
+
+    // =========================================================================
+    // 1-TO-10 STAR RATING SYSTEM
+    // =========================================================================
+    function getArtworkRatingStats(artworkId) {
+      const itemReviews = state.reviews.filter(r => String(r.artwork_id) === String(artworkId));
+      const count = itemReviews.length;
+      const avg = count > 0
+        ? (itemReviews.reduce((acc, r) => acc + Number(r.rating || 0), 0) / count).toFixed(1)
+        : null;
+
+      const actorKey = state.user ? state.user.id : "local-guest";
+      const myReview = itemReviews.find(r =>
+        (state.user && r.user_id === state.user.id) ||
+        (!state.user && r.local_actor === actorKey)
+      );
+
+      return {
+        count,
+        avg,
+        myRating: myReview ? Number(myReview.rating) : 0
+      };
+    }
+
+    async function rateArtwork(artworkId, score) {
+      const numericScore = Math.max(1, Math.min(10, Number(score)));
+
+      if (state.client && state.user) {
+        const existing = state.reviews.find(
+          r => String(r.artwork_id) === String(artworkId) && r.user_id === state.user.id
+        );
+
+        let error = null;
+        if (existing && existing.id && !String(existing.id).startsWith("local-")) {
+          const res = await state.client
+            .from("reviews")
+            .update({ rating: numericScore })
+            .eq("id", existing.id);
+          error = res.error;
+        } else {
+          const res = await state.client
+            .from("reviews")
+            .insert({
+              artwork_id: artworkId,
+              user_id: state.user.id,
+              rating: numericScore
+            });
+          error = res.error;
+        }
+
+        if (error) {
+          showToast("Errore salvataggio voto: " + error.message, "error");
+          return;
+        }
+        showToast(`Voto registrato: ${numericScore}/10 ★`, "success");
+        await refreshSessionAndData();
+      } else {
+        const localActor = "local-guest";
+        const idx = state.reviews.findIndex(
+          r => String(r.artwork_id) === String(artworkId) && r.local_actor === localActor
+        );
+        const entry = {
+          id: "local-" + artworkId + "-" + Date.now(),
+          artwork_id: artworkId,
+          rating: numericScore,
+          local_actor: localActor
+        };
+        if (idx >= 0) {
+          state.reviews[idx] = entry;
+        } else {
+          state.reviews.push(entry);
+        }
+        localStorage.setItem("vernice_local_reviews", JSON.stringify(state.reviews));
+        showToast(`Voto salvato localmente: ${numericScore}/10 ★`, "info");
+        if (state.tab === "artworks") {
+          renderArtworksListOnly();
+        } else {
+          render();
+        }
+      }
+    }
+
+    function renderStarBar10(artwork) {
+      const stats = getArtworkRatingStats(artwork.id);
+      const activeRating = stats.myRating;
+
+      const starsHtml = Array.from({ length: 10 }, (_, i) => {
+        const val = i + 1;
+        const isLit = val <= activeRating;
+        return `<button
+          type="button"
+          class="py-1.5 rounded-lg border text-sm leading-none text-center transition active:scale-95 ${
+            isLit
+              ? "bg-[#fff7e3] border-[#b88a2d] text-[#b88a2d] shadow-2xs"
+              : "bg-[#faf8f4] border-[#dfd8ca] text-[#9b958a] hover:border-[#b88a2d]/50"
+          }"
+          title="Vota ${val} su 10"
+          aria-label="Vota ${val} su 10"
+          onclick="rateArtwork('${escapeHtml(artwork.id)}', ${val})"
+        >★</button>`;
+      }).join("");
+
+      return `
+        <div class="mt-3.5 pt-3.5 border-t border-[#e3ded4]">
+          <div class="flex items-center justify-between gap-2 mb-2 text-xs">
+            <span class="font-extrabold text-[#171717]">
+              ${stats.avg ? `<span class="text-[#b88a2d]">★</span> ${stats.avg} <span class="text-[#66635e] font-semibold">/ 10</span>` : "☆ Nessun voto"}
+              <span class="font-medium text-[#66635e] ml-1">(${stats.count} ${stats.count === 1 ? "voto" : "voti"})</span>
+            </span>
+            <span class="font-bold text-[#c85a32]">
+              ${activeRating ? `Il tuo voto: ${activeRating}/10` : "Vota 1–10"}
+            </span>
+          </div>
+          <div class="grid grid-cols-10 gap-1 mb-1">${starsHtml}</div>
+          <div class="grid grid-cols-10 text-center text-[10px] font-medium text-[#66635e]">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // INTERACTIVE LEAFLET MAP
+    // =========================================================================
+    function resolveArtworkCoords(artwork, index) {
+      if (
+        artwork.lat !== null &&
+        artwork.lat !== undefined &&
+        artwork.lng !== null &&
+        artwork.lng !== undefined &&
+        !isNaN(Number(artwork.lat)) &&
+        !isNaN(Number(artwork.lng))
+      ) {
+        return [Number(artwork.lat), Number(artwork.lng)];
+      }
+
+      const rawCity = (artwork.city || "").toLowerCase().trim();
+      let baseCoords = null;
+
+      for (const [key, coords] of Object.entries(CITY_COORDS)) {
+        if (rawCity === key || rawCity.includes(key)) {
+          baseCoords = coords;
+          break;
+        }
+      }
+
+      if (!baseCoords) {
+        baseCoords = [42.5000, 12.5000];
+      }
+
+      const seed = String(artwork.id || artwork.title || index)
+        .split("")
+        .reduce((acc, ch) => acc + ch.charCodeAt(0), index * 17);
+      const angle = (seed * 137.508) * (Math.PI / 180);
+      const radius = 0.004 + ((seed % 7) * 0.0018);
+
+      return [
+        baseCoords[0] + Math.cos(angle) * radius,
+        baseCoords[1] + Math.sin(angle) * radius
+      ];
+    }
+
+    function initInteractiveMap() {
+      const mapEl = document.getElementById("verniceMap");
+      if (!mapEl || typeof L === "undefined") return;
+
+      if (state.mapInstance) {
+        state.mapInstance.remove();
+        state.mapInstance = null;
+      }
+
+      const map = L.map("verniceMap", {
+        zoomControl: true,
+        attributionControl: true
+      }).setView([43.5, 11.5], 5);
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: "abcd",
+        maxZoom: 19
+      }).addTo(map);
+
+      state.mapInstance = map;
+      state.markersLayer = L.layerGroup().addTo(map);
+
+      renderMapMarkers();
+    }
+
+    function renderMapMarkers() {
+      if (!state.mapInstance || !state.markersLayer) return;
+      state.markersLayer.clearLayers();
+
+      const items = getFilteredArtworks(state.mapCategory);
+      const countEl = document.getElementById("mapCountLabel");
+      if (countEl) {
+        countEl.textContent = `${items.length} ${items.length === 1 ? "luogo" : "luoghi"} sulla mappa`;
+      }
+
+      const bounds = [];
+
+      items.forEach((art, idx) => {
+        const [lat, lng] = resolveArtworkCoords(art, idx);
+        bounds.push([lat, lng]);
+
+        const catLower = (art.category || "").toLowerCase();
+        let pinClass = "vernice-pin";
+        let symbol = "✦";
+        if (catLower === "museo") {
+          pinClass += " museum";
+          symbol = "🏛";
+        } else if (catLower === "scultura") {
+          pinClass += " sculpture";
+          symbol = "🗿";
+        } else if (catLower === "architettura") {
+          symbol = "⛪";
+        }
+
+        const customIcon = L.divIcon({
+          className: "",
+          html: `<div class="${pinClass}">${symbol}</div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -14]
+        });
+
+        const stats = getArtworkRatingStats(art.id);
+        const ratingText = stats.avg ? `★ ${stats.avg}/10 (${stats.count})` : "☆ Ancora nessun voto";
+        const effectiveImg = getEffectiveImageUrl(art);
+
+        const popupHtml = `
+          <div class="bg-white text-[#171717]">
+            ${effectiveImg ? `<img src="${escapeHtml(effectiveImg)}" alt="${escapeHtml(art.title)}" class="w-full h-28 object-cover bg-[#ece8e0]" onerror="this.style.display='none'" />` : ""}
+            <div class="p-3">
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#f5efe4] text-[#c85a32]">${escapeHtml(art.category || "Opera")}</span>
+                <span class="text-[11px] font-extrabold text-[#b88a2d]">${ratingText}</span>
+              </div>
+              <h4 class="font-bold text-sm leading-snug text-[#171717]">${escapeHtml(art.title)}</h4>
+              <p class="text-xs text-[#66635e] font-medium mt-0.5">${escapeHtml(art.artist)}</p>
+              <p class="text-[11px] text-[#171717] mt-1.5"><strong>${escapeHtml(art.museum || "")}</strong> • ${escapeHtml(art.city || "")}</p>
+              <button
+                type="button"
+                onclick="jumpToArtworkInCatalog('${escapeHtml(art.title).replace(/'/g, "\\'")}')"
+                class="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-[#8f1d2c] text-white text-xs font-bold hover:bg-[#741623] transition"
+              >
+                Apri & Vota nel Catalogo
+              </button>
+            </div>
+          </div>
+        `;
+
+        const marker = L.marker([lat, lng], { icon: customIcon }).bindPopup(popupHtml);
+        marker.on("popupopen", async () => {
+          // If image wasn't resolved yet when popup opens, resolve it automatically
+          if (!getEffectiveImageUrl(art)) {
+            await resolveMissingImageForArtwork(art, false);
+            const updatedImg = getEffectiveImageUrl(art);
+            if (updatedImg) {
+              marker.setPopupContent(`
+                <div class="bg-white text-[#171717]">
+                  <img src="${escapeHtml(updatedImg)}" alt="${escapeHtml(art.title)}" class="w-full h-28 object-cover bg-[#ece8e0]" onerror="this.style.display='none'" />
+                  <div class="p-3">
+                    <div class="flex items-center justify-between gap-1 mb-1">
+                      <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#f5efe4] text-[#c85a32]">${escapeHtml(art.category || "Opera")}</span>
+                      <span class="text-[11px] font-extrabold text-[#b88a2d]">${ratingText}</span>
+                    </div>
+                    <h4 class="font-bold text-sm leading-snug text-[#171717]">${escapeHtml(art.title)}</h4>
+                    <p class="text-xs text-[#66635e] font-medium mt-0.5">${escapeHtml(art.artist)}</p>
+                    <p class="text-[11px] text-[#171717] mt-1.5"><strong>${escapeHtml(art.museum || "")}</strong> • ${escapeHtml(art.city || "")}</p>
+                    <button
+                      type="button"
+                      onclick="jumpToArtworkInCatalog('${escapeHtml(art.title).replace(/'/g, "\\'")}')"
+                      class="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-[#8f1d2c] text-white text-xs font-bold hover:bg-[#741623] transition"
+                    >
+                      Apri & Vota nel Catalogo
+                    </button>
+                  </div>
+                </div>
+              `);
+            }
+          }
+        });
+        state.markersLayer.addLayer(marker);
+      });
+
+      if (bounds.length > 0 && state.mapCategory !== "Tutte") {
+        state.mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+      }
+    }
+
+    // =========================================================================
+    // SUPABASE ACTIONS (CONFIG, AUTH, PROPOSE, CURATE)
+    // =========================================================================
+    async function runDiagnostics() {
+      initSupabase();
+      if (!state.client) {
+        state.diagMessage = "Inserisci URL e chiave Supabase per testare.";
+        render();
+        return;
+      }
+      const { error } = await state.client.from("artworks").select("id").limit(1);
+      if (error) {
+        state.diagMessage = "Errore database: " + error.message;
+        showToast("Connessione fallita", "error");
+      } else {
+        state.diagMessage = "Connessione OK: tabella 'artworks' raggiungibile su Supabase.";
+        showToast("Database Supabase raggiungibile!", "success");
+      }
+      render();
+    }
+
+    async function saveConfig() {
+      const urlInput = document.getElementById("cfgUrl").value.trim().replace(/\/rest\/v1\/?$/, "");
+      const keyInput = document.getElementById("cfgKey").value.trim();
+      state.supabaseUrl = urlInput;
+      state.supabaseKey = keyInput;
+      localStorage.setItem("vernice_sb_url", urlInput);
+      localStorage.setItem("vernice_sb_key", keyInput);
+      await refreshSessionAndData();
+      await runDiagnostics();
+    }
+
+    async function signUpOrSignIn(mode) {
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      if (!state.client) return showToast("Configura prima URL e chiave Supabase.", "error");
+      if (!email || !password) return showToast("Inserisci email e password.", "error");
+
+      const res = mode === "signup"
+        ? await state.client.auth.signUp({ email, password })
+        : await state.client.auth.signInWithPassword({ email, password });
+
+      if (res.error) {
+        showToast("Errore accesso: " + res.error.message, "error");
+      } else {
+        showToast(
+          mode === "signup"
+            ? "Registrazione inviata! Controlla l'email se richiesta conferma."
+            : "Accesso effettuato con successo.",
+          "success"
+        );
+        await refreshSessionAndData();
+      }
+    }
+
+    async function signOut() {
+      if (state.client) await state.client.auth.signOut();
+      state.user = null;
+      state.profile = null;
+      showToast("Disconnesso.", "info");
+      render();
+    }
+
+    async function submitArtwork() {
+      if (!state.client || !state.user) {
+        return showToast("Accedi prima nella scheda Profilo & Play per proporre un'opera.", "error");
+      }
+
+      const title = document.getElementById("artTitle").value.trim();
+      const artist = document.getElementById("artArtist").value.trim();
+      const museum = document.getElementById("artMuseum").value.trim();
+      const city = document.getElementById("artCity").value.trim();
+      let imageUrl = document.getElementById("artImg").value.trim();
+
+      if (!title || !artist || !museum || !city) {
+        return showToast("Compila almeno titolo, artista, museo e città.", "error");
+      }
+
+      // Automatically resolve image if user left URL empty
+      if (!imageUrl) {
+        showToast("Ricerca immagine automatica in corso...", "info");
+        const autoUrl = await fetchBestArtworkImageUrl(title, artist, museum);
+        if (autoUrl) imageUrl = autoUrl;
+      }
+
+      const latRaw = document.getElementById("artLat").value.trim();
+      const lngRaw = document.getElementById("artLng").value.trim();
+
+      const payload = {
+        title,
+        artist,
+        year: document.getElementById("artYear").value.trim(),
+        category: document.getElementById("artCategory").value,
+        era: document.getElementById("artEra").value,
+        museum,
+        city,
+        description: document.getElementById("artDesc").value.trim(),
+        image_url: imageUrl,
+        status: "pending",
+        submitted_by: state.user.id
+      };
+
+      if (latRaw && !isNaN(Number(latRaw))) payload.lat = Number(latRaw);
+      if (lngRaw && !isNaN(Number(lngRaw))) payload.lng = Number(lngRaw);
+
+      const { error } = await state.client.from("artworks").insert(payload);
+      if (error) {
+        showToast("Errore invio proposta: " + error.message, "error");
+      } else {
+        showToast("Opera inviata in revisione!", "success");
+        await refreshSessionAndData();
+        setTab(state.profile?.is_curator ? "curator" : "artworks");
+      }
+    }
+
+    async function moderateArtwork(id, status) {
+      if (!state.client) return;
+      const { error } = await state.client.from("artworks").update({ status }).eq("id", id);
+      if (error) {
+        showToast("Errore moderazione: " + error.message, "error");
+      } else {
+        showToast(status === "approved" ? "Opera approvata e pubblicata!" : "Proposta rifiutata.", "success");
+        await refreshSessionAndData();
+      }
+    }
+
+    // =========================================================================
+    // RENDERING VIEWS
+    // =========================================================================
+    function renderArtworksCardsHtml(list) {
+      if (list.length === 0) {
+        return `
+          <div class="bg-white border border-[#e3ded4] rounded-2xl p-6 text-center shadow-xs">
+            <p class="text-base font-bold text-[#171717] mb-1">Nessun risultato trovato</p>
+            <p class="text-sm text-[#66635e] mb-4">Prova con un altro termine (es. "Caravaggio", "Firenze", "Louvre") oppure torna a tutte le categorie.</p>
+            <button type="button" onclick="clearSearchAndFilters()" class="px-4 py-2.5 rounded-xl bg-[#efebe3] text-[#171717] border border-[#d7d0c4] text-xs font-bold hover:bg-[#e5dfd4] transition">
+              Reimposta ricerca e filtri
+            </button>
+          </div>
+        `;
+      }
+
+      return list.map(a => {
+        const effectiveImg = getEffectiveImageUrl(a);
+        const isResolving = state.resolvingIds.has(String(a.id));
+
+        let imageSectionHtml = "";
+        if (effectiveImg) {
+          imageSectionHtml = `
+            <img
+              src="${escapeHtml(effectiveImg)}"
+              alt="${escapeHtml(a.title)}"
+              loading="lazy"
+              class="w-full max-h-64 object-cover"
+              onerror="handleArtworkImageError('${escapeHtml(a.id)}')"
+            />
+          `;
+        } else if (isResolving || !a._autoRetried) {
+          imageSectionHtml = `
+            <div class="w-full h-44 img-shimmer flex flex-col items-center justify-center p-4 text-center">
+              <span class="text-xs font-bold text-[#8f1d2c] tracking-wide">Ricerca immagine automatica...</span>
+              <span class="text-[11px] text-[#66635e] mt-1">${escapeHtml(a.title)}</span>
+            </div>
+          `;
+        } else {
+          imageSectionHtml = `
+            <div class="w-full h-36 bg-gradient-to-br from-[#faf8f4] to-[#ece7dd] border-b border-[#e3ded4] flex flex-col items-center justify-center p-4 text-center">
+              <span class="font-editorial text-sm font-bold text-[#8f1d2c]">${escapeHtml(a.title)}</span>
+              <span class="text-[11px] text-[#66635e] mt-0.5">${escapeHtml(a.museum || a.city || "")}</span>
+              <button
+                type="button"
+                onclick="manualRetryArtworkImage('${escapeHtml(a.id)}')"
+                class="mt-2 px-3 py-1 rounded-full bg-white border border-[#d5cfc4] text-[11px] font-bold text-[#171717] hover:border-[#8f1d2c] transition"
+              >
+                ↻ Cerca immagine
+              </button>
+            </div>
+          `;
+        }
+
+        return `
+          <article class="bg-white border border-[#e3ded4] rounded-2xl overflow-hidden mb-4 shadow-[0_3px_14px_rgba(0,0,0,0.03)] transition hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]">
+            <div id="art-img-box-${escapeHtml(a.id)}" class="relative bg-[#ece8e0]">
+              ${imageSectionHtml}
+            </div>
+            <div class="p-4">
+              <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#f5efe4] text-[#c85a32] border border-[#eadcc6]">
+                  ${escapeHtml(a.category || "Opera")}
+                </span>
+                ${a.era ? `
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#faf8f4] text-[#8f1d2c] border border-[#e3ded4]">
+                    ${escapeHtml(a.era)}
+                  </span>
+                ` : ""}
+              </div>
+
+              <h3 class="text-base font-extrabold text-[#171717] leading-snug">
+                ${escapeHtml(a.title)} <span class="font-medium text-[#66635e]">— ${escapeHtml(a.artist)}</span>
+              </h3>
+
+              <p class="text-xs text-[#171717] mt-1 font-medium">
+                <span class="text-[#b88a2d]">📍</span> <strong>${escapeHtml(a.museum || "")}</strong> (${escapeHtml(a.city || "")}) ${a.year ? `• <span class="text-[#66635e]">${escapeHtml(a.year)}</span>` : ""}
+              </p>
+
+              ${a.description ? `<p class="text-sm text-[#66635e] mt-2 leading-relaxed">${escapeHtml(a.description)}</p>` : ""}
+
+              ${renderStarBar10(a)}
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderArtworksListOnly() {
+      const filtered = getFilteredArtworks();
+      const metaEl = document.getElementById("resultsCount");
+      const listEl = document.getElementById("filteredArtworksList");
+      if (metaEl) {
+        metaEl.textContent = `Risultati: ${filtered.length} su ${state.artworks.length} • Categoria: ${state.selectedCategory}`;
+      }
+      if (listEl) {
+        listEl.innerHTML = renderArtworksCardsHtml(filtered);
+      }
+      resolveVisibleMissingImages(filtered);
+    }
+
+    function render() {
+      const app = document.getElementById("app");
+      if (!app) return;
+
+      // 1. TAB: OPERE
+      if (state.tab === "artworks") {
+        const filtered = getFilteredArtworks();
+        const chipsHtml = CATEGORIES.map(cat => `
+          <button
+            type="button"
+            onclick="selectCategory('${cat}')"
+            class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
+              state.selectedCategory === cat
+                ? "bg-[#8f1d2c] text-white border-[#8f1d2c] shadow-xs"
+                : "bg-[#f4f1ea] text-[#171717] border-[#e3ded4] hover:border-[#b88a2d]"
+            }"
+          >${cat}</button>
+        `).join("");
+
+        app.innerHTML = `
+          <section class="bg-white border border-[#e3ded4] rounded-2xl p-4 mb-4 shadow-xs">
+            <h2 class="font-editorial text-lg font-bold text-[#171717] mb-1">Collezione & Musei</h2>
+            <p class="text-xs text-[#66635e] mb-3">Immagini caricate automaticamente da Wikipedia e Wikimedia Commons. Vota ogni opera da <strong>1 a 10 stelle</strong>.</p>
+
+            <div class="flex items-center gap-2 mb-3">
+              <div class="relative flex-1">
+                <input
+                  id="searchInput"
+                  type="search"
+                  value="${escapeHtml(state.searchQuery)}"
+                  placeholder="Cerca titolo, artista, museo o città..."
+                  oninput="updateSearchQuery(this.value)"
+                  class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#d5cfc4] bg-[#faf9f7] text-sm text-[#171717] focus:outline-none focus:border-[#8f1d2c] focus:bg-white transition"
+                />
+                <svg class="w-4 h-4 text-[#66635e] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+              </div>
+              ${(state.searchQuery || state.selectedCategory !== "Tutte") ? `
+                <button type="button" onclick="clearSearchAndFilters()" class="px-3 py-2.5 rounded-xl bg-[#efebe3] text-[#171717] border border-[#d7d0c4] text-xs font-bold shrink-0">
+                  Reset
+                </button>
+              ` : ""}
+            </div>
+
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2">
+              ${chipsHtml}
+            </div>
+
+            <div id="resultsCount" class="text-[11px] font-semibold text-[#66635e]">
+              Risultati: ${filtered.length} su ${state.artworks.length} • Categoria: ${state.selectedCategory}
+            </div>
+          </section>
+
+          <div id="filteredArtworksList">
+            ${renderArtworksCardsHtml(filtered)}
+          </div>
+        `;
+
+        resolveVisibleMissingImages(filtered);
+      }
+
+      // 2. TAB: MAPPA INTERATTIVA
+      else if (state.tab === "map") {
+        const mapChipsHtml = CATEGORIES.map(cat => `
+          <button
+            type="button"
+            data-cat="${cat}"
+            onclick="selectMapCategory('${cat}')"
+            class="map-cat-btn shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+              state.mapCategory === cat
+                ? "bg-[#8f1d2c] text-white border-[#8f1d2c]"
+                : "bg-[#f4f1ea] text-[#171717] border-[#e3ded4] hover:border-[#b88a2d]"
+            }"
+          >${cat}</button>
+        `).join("");
+
+        app.innerHTML = `
+          <section class="bg-white border border-[#e3ded4] rounded-2xl p-4 mb-3 shadow-xs">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <h2 class="font-editorial text-lg font-bold text-[#171717]">Mappa dell'Arte</h2>
+              <span id="mapCountLabel" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#f5efe4] text-[#c85a32]">
+                ${getFilteredArtworks(state.mapCategory).length} luoghi
+              </span>
+            </div>
+            <p class="text-xs text-[#66635e] mb-3">Tocca un segnaposto per scoprire l'opera, il museo e la valutazione.</p>
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              ${mapChipsHtml}
+            </div>
+          </section>
+
+          <div class="bg-white border border-[#e3ded4] rounded-2xl overflow-hidden shadow-sm">
+            <div id="verniceMap" class="w-full h-[62vh] min-h-[380px] z-10"></div>
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center justify-center gap-4 text-[11px] font-semibold text-[#66635e]">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-[#8f1d2c] inline-block"></span> Pittura / Architettura</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-[#c85a32] inline-block"></span> Scultura</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-[#b88a2d] inline-block"></span> Museo</span>
+          </div>
+        `;
+
+        setTimeout(initInteractiveMap, 30);
+      }
+
+      // 3. TAB: PROPONI
+      else if (state.tab === "propose") {
+        app.innerHTML = `
+          <section class="bg-white border border-[#e3ded4] rounded-2xl p-5 shadow-xs">
+            <h2 class="font-editorial text-lg font-bold text-[#171717] mb-1">Proponi Opera o Museo</h2>
+            <p class="text-xs text-[#66635e] mb-4">Se lasci vuoto l'URL dell'immagine, l'app la cercherà automaticamente da Wikipedia / Commons.</p>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-[#171717] mb-1">Titolo dell'opera o del museo *</label>
+                <input id="artTitle" placeholder="Es. La Pietà Rondanini" class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-[#171717] mb-1">Artista o architetto *</label>
+                <input id="artArtist" placeholder="Es. Michelangelo Buonarroti" class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-[#171717] mb-1">Categoria</label>
+                  <select id="artCategory" class="w-full px-3 py-2.5 rounded-xl border border-[#d5cfc4] text-sm bg-white focus:outline-none focus:border-[#8f1d2c]">
+                    <option value="Pittura">Pittura</option>
+                    <option value="Scultura">Scultura</option>
+                    <option value="Museo">Museo</option>
+                    <option value="Architettura">Architettura</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-[#171717] mb-1">Epoca</label>
+                  <select id="artEra" class="w-full px-3 py-2.5 rounded-xl border border-[#d5cfc4] text-sm bg-white focus:outline-none focus:border-[#8f1d2c]">
+                    <option value="Classica">Classica</option>
+                    <option value="Rinascimento" selected>Rinascimento</option>
+                    <option value="Barocco">Barocco</option>
+                    <option value="Neoclassicismo">Neoclassicismo</option>
+                    <option value="Romanticismo">Romanticismo</option>
+                    <option value="Impressionismo">Impressionismo</option>
+                    <option value="Post-Impressionismo">Post-Impressionismo</option>
+                    <option value="Contemporanea">Contemporanea</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-[#171717] mb-1">Museo o sede *</label>
+                  <input id="artMuseum" placeholder="Es. Castello Sforzesco" class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-[#171717] mb-1">Città *</label>
+                  <input id="artCity" placeholder="Es. Milano" class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-xs font-bold text-[#171717] mb-1">Anno</label>
+                  <input id="artYear" placeholder="1564" class="w-full px-3 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-[#66635e] mb-1">Lat (opz.)</label>
+                  <input id="artLat" type="number" step="any" placeholder="45.470" class="w-full px-3 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-[#66635e] mb-1">Lng (opz.)</label>
+                  <input id="artLng" type="number" step="any" placeholder="9.179" class="w-full px-3 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                </div>
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-bold text-[#171717]">URL Immagine (opzionale)</label>
+                  <button type="button" onclick="previewProposeImage()" class="text-[11px] font-bold text-[#8f1d2c] hover:underline">
+                    ✦ Trova immagine automaticamente
+                  </button>
+                </div>
+                <input id="artImg" placeholder="Lascia vuoto per ricerca automatica o incolla https://..." class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                <div id="proposeAutoImgPreview" class="mt-2"></div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-[#171717] mb-1">Descrizione</label>
+                <textarea id="artDesc" rows="3" placeholder="Breve nota storica o artistica..." class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]"></textarea>
+              </div>
+
+              <button type="button" onclick="submitArtwork()" class="w-full py-3 rounded-xl bg-[#8f1d2c] text-white font-bold text-sm shadow-sm hover:bg-[#741623] active:scale-[0.99] transition">
+                Invia Proposta al Curatore
+              </button>
+            </div>
+          </section>
+        `;
+      }
+
+      // 4. TAB: CURATORE
+      else if (state.tab === "curator") {
+        const isCurator = Boolean(state.profile?.is_curator);
+
+        if (!state.user) {
+          app.innerHTML = `
+            <div class="bg-white border border-[#e3ded4] rounded-2xl p-6 text-center shadow-xs">
+              <h2 class="font-editorial text-lg font-bold text-[#171717] mb-2">Pannello Curatore</h2>
+              <p class="text-sm text-[#66635e] mb-4">Accedi con il tuo account nella scheda <strong>Profilo & Play</strong> per moderare le opere proposte.</p>
+              <button type="button" onclick="setTab('profile')" class="px-5 py-2.5 rounded-xl bg-[#8f1d2c] text-white text-xs font-bold">Vai al Profilo</button>
+            </div>
+          `;
+          return;
+        }
+
+        if (!isCurator) {
+          app.innerHTML = `
+            <div class="bg-white border border-[#e3ded4] rounded-2xl p-6 shadow-xs">
+              <h2 class="font-editorial text-lg font-bold text-[#171717] mb-2">Accesso Riservato ai Curatori</h2>
+              <p class="text-sm text-[#66635e]">Il tuo account (<strong>${escapeHtml(state.user.email)}</strong>) ha attualmente <code class="bg-[#f5f3ef] px-1.5 py-0.5 rounded text-[#8f1d2c]">is_curator = false</code>.</p>
+            </div>
+          `;
+          return;
+        }
+
+        app.innerHTML = `
+          <section class="bg-white border border-[#e3ded4] rounded-2xl p-4 mb-4 shadow-xs">
+            <h2 class="font-editorial text-lg font-bold text-[#171717] mb-1">Pannello Curatore</h2>
+            <p class="text-xs text-[#66635e]">Proposte in attesa di revisione: <strong class="text-[#8f1d2c]">${state.pendingArtworks.length}</strong></p>
+          </section>
+
+          ${state.pendingArtworks.length === 0 ? `
+            <div class="bg-white border border-[#e3ded4] rounded-2xl p-6 text-center shadow-xs">
+              <p class="text-sm text-[#66635e]">Nessuna proposta in sospeso al momento. Ottimo lavoro!</p>
+            </div>
+          ` : state.pendingArtworks.map(p => `
+            <div class="bg-white border border-[#e3ded4] rounded-2xl p-4 mb-3 shadow-xs">
+              ${p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.title)}" class="w-full max-h-48 object-cover rounded-xl mb-3 bg-[#ece8e0]" onerror="this.style.display='none'" />` : ""}
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#f5efe4] text-[#c85a32]">${escapeHtml(p.category || "Opera")}</span>
+                <span class="text-[11px] font-semibold text-[#66635e]">${escapeHtml(p.era || "")}</span>
+              </div>
+              <h3 class="text-base font-extrabold text-[#171717]">${escapeHtml(p.title)} — ${escapeHtml(p.artist)}</h3>
+              <p class="text-xs text-[#171717] mt-1"><strong>${escapeHtml(p.museum)}</strong> (${escapeHtml(p.city)})</p>
+              ${p.description ? `<p class="text-xs text-[#66635e] mt-2">${escapeHtml(p.description)}</p>` : ""}
+              <div class="grid grid-cols-2 gap-2.5 mt-4">
+                <button type="button" onclick="moderateArtwork('${escapeHtml(p.id)}', 'approved')" class="py-2.5 rounded-xl bg-[#1f6f43] text-white text-xs font-bold hover:bg-[#185835] transition">
+                  ✓ Approva
+                </button>
+                <button type="button" onclick="moderateArtwork('${escapeHtml(p.id)}', 'rejected')" class="py-2.5 rounded-xl bg-[#9e2222] text-white text-xs font-bold hover:bg-[#801b1b] transition">
+                  ✕ Rifiuta
+                </button>
+              </div>
+            </div>
+          `).join("")}
+        `;
+      }
+
+      // 5. TAB: PROFILO & PLAY
+      else if (state.tab === "profile") {
+        app.innerHTML = `
+          <section class="bg-white border border-[#e3ded4] rounded-2xl p-5 mb-4 shadow-xs">
+            <h2 class="font-editorial text-lg font-bold text-[#171717] mb-3">Account Utente</h2>
+            ${state.user ? `
+              <div class="p-3.5 rounded-xl bg-[#faf8f4] border border-[#e3ded4] mb-3">
+                <p class="text-xs text-[#66635e]">Connesso come</p>
+                <p class="text-sm font-extrabold text-[#171717] mt-0.5">${escapeHtml(state.user.email)}</p>
+                <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                  state.profile?.is_curator
+                    ? "bg-[#effaf3] text-[#1f6f43] border border-[#b7dfc8]"
+                    : "bg-[#f4f1ea] text-[#66635e] border border-[#e3ded4]"
+                }">
+                  ${state.profile?.is_curator ? "★ Curatore Verificato (Salvataggio automatico URL immagini attivo)" : "Collezionista / Visitatore"}
+                </div>
+              </div>
+              <button type="button" onclick="signOut()" class="w-full py-2.5 rounded-xl bg-[#efebe3] text-[#171717] border border-[#d7d0c4] text-xs font-bold">
+                Disconnetti Account
+              </button>
+            ` : `
+              <p class="text-xs text-[#66635e] mb-3">Accedi o registrati per sincronizzare i tuoi voti da 1 a 10 stelle e proporre nuove opere.</p>
+              <div class="space-y-2.5">
+                <input id="authEmail" type="email" placeholder="La tua email" class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                <input id="authPassword" type="password" placeholder="Password (min. 6 caratteri)" class="w-full px-3.5 py-2.5 rounded-xl border border-[#d5cfc4] text-sm focus:outline-none focus:border-[#8f1d2c]" />
+                <div class="grid grid-cols-2 gap-2.5 pt-1">
+                  <button type="button" onclick="signUpOrSignIn('signin')" class="py-2.5 rounded-xl bg-[#8f1d2c] text-white text-xs font-bold">
+                    Accedi
+                  </button>
+                  <button type="button" onclick="signUpOrSignIn('signup')" class="py-2.5 rounded-xl bg-[#efebe3] text-[#171717] border border-[#d7d0c4] text-xs font-bold">
+                    Registrati
+                  </button>
+                </div>
+              </div>
+            `}
+          </section>
+
+          <section class="bg-white border border-[#e3ded4] rounded-2xl p-5 shadow-xs">
+            <h2 class="font-editorial text-lg font-bold text-[#171717] mb-1">Database Supabase</h2>
+            <p class="text-xs text-[#66635e] mb-3">Configurazione attiva del backend cloud.</p>
+
+            <label class="block text-xs font-bold text-[#171717] mb-1">Project URL</label>
+            <input id="cfgUrl" value="${escapeHtml(state.supabaseUrl)}" class="w-full px-3 py-2 rounded-xl border border-[#d5cfc4] text-xs font-mono mb-3 bg-[#faf9f7]" />
+
+            <label class="block text-xs font-bold text-[#171717] mb-1">Publishable / Anon Key</label>
+            <input id="cfgKey" value="${escapeHtml(state.supabaseKey)}" class="w-full px-3 py-2 rounded-xl border border-[#d5cfc4] text-xs font-mono mb-3 bg-[#faf9f7]" />
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" onclick="saveConfig()" class="py-2.5 rounded-xl bg-[#8f1d2c] text-white text-xs font-bold">
+                Salva e Riconnetti
+              </button>
+              <button type="button" onclick="runDiagnostics()" class="py-2.5 rounded-xl bg-[#efebe3] text-[#171717] border border-[#d7d0c4] text-xs font-bold">
+                Test Connessione
+              </button>
+            </div>
+
+            <div class="mt-3 p-3 rounded-xl bg-[#f7f5f0] border border-[#e3ded4] text-xs text-[#171717]">
+              ${escapeHtml(state.diagMessage)}
+            </div>
+          </section>
+        `;
+      }
+    }
+
+    // Boot application
+    window.addEventListener("DOMContentLoaded", () => {
+      refreshSessionAndData();
+    });
+  </script>
+</body>
+</html>
+```
